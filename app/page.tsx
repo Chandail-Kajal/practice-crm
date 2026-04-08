@@ -36,7 +36,7 @@ export default function Home() {
 
   return (
     <div style={{ padding: "20px" }}>
-      <h1>Image Carousel</h1>
+      
 
      
       <div style={{ marginBottom: "20px" }}>

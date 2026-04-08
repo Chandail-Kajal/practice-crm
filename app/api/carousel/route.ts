@@ -4,14 +4,16 @@ import { conn } from "../../../lib/db";
 
 export async function GET() {
   try {
-    const [rows] = await conn.query("SELECT * FROM images ORDER BY id DESC");
+    const [rows] = await conn.query(
+      "SELECT * FROM images ORDER BY sort_order ASC, id DESC"
+    );
 
     return NextResponse.json({
       success: true,
       data: rows,
     });
   } catch (error) {
-    return NextResponse.json(
+ return NextResponse.json(
       { success: false, error: "Failed to fetch data" },
       { status: 500 }
     );
