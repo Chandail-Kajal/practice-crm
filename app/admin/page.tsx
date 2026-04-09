@@ -1,220 +1,194 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
-
 import { useEffect, useState } from "react";
-import {
-  DragDropContext,
-  Droppable,
-  Draggable,
-} from "@hello-pangea/dnd";
+import { useRouter } from "next/navigation";
 
-type ImageType = {
+type Carousel = {
   id: number;
-  img_url: string;
-  sort_order: number;
+  title: string;
+  slug: string;
+  is_active: number;
 };
 
-export default function AdminPage() {
-  const [images, setImages] = useState<ImageType[]>([]);
-  const [originalImages, setOriginalImages] = useState<ImageType[]>([]);
+export default function CarouselAdmin() {
+  const [data, setData] = useState<Carousel[]>([]);
   const [showModal, setShowModal] = useState(false);
-  const [editMode, setEditMode] = useState(false);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [newUrl, setNewUrl] = useState("");
+  const [editItem, setEditItem] = useState<Carousel | null>(null);
+  const [form, setForm] = useState({ title: "", slug: "" });
+  const [loading, setLoading] = useState(false);
 
-  const fetchImages = async () => {
-    const res = await fetch("/api/carousel");
-    const data = await res.json();
-    setImages(data.data || []);
-    setOriginalImages(data.data || []);
+  const router = useRouter();
+
+  const fetchData = async () => {
+    const res = await fetch("/api/carousels?active=false");
+    const json = await res.json();
+    setData(json.data || []);
   };
 
   useEffect(() => {
-    fetchImages();
-  }, []);
+    fetchData();
+  }, [loading]);
 
-  
-  const isOrderChanged =
-    JSON.stringify(images.map(i => i.id)) !==
-    JSON.stringify(originalImages.map(i => i.id));
-
-  
-  const handleDragEnd = (result: any) => {
-    if (!result.destination) return;
-
-    const items = Array.from(images);
-    const [moved] = items.splice(result.source.index, 1);
-    items.splice(result.destination.index, 0, moved);
-
-    const updated = items.map((item, idx) => ({
-      ...item,
-      sort_order: idx,
-    }));
-
-    setImages(updated);
-  };
-
-  
-  const saveOrder = async () => {
-    await fetch("/api/carousel/reorder", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        images: images.map((img, idx) => ({
-          id: img.id,
-          sort_order: idx,
-        })),
-      }),
-    });
-
-    fetchImages();
-  };
-
-  
   const handleSubmit = async () => {
-    if (!newUrl) return;
+    setLoading(true);
+    try {
+      const method = editItem ? "PUT" : "POST";
 
-    if (editMode && selectedId) {
-      await fetch(`/api/carousel/${selectedId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ img_url: newUrl }),
-      });
-    } else {
-      await fetch("/api/carousel", {
-        method: "POST",
+      await fetch("/api/carousels", {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          img_url: newUrl,
-          sort_order: images.length,
+          id: editItem?.id,
+          ...form,
         }),
       });
-    }
 
-    resetModal();
-    fetchImages();
+      closeModal();
+      fetchData();
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const openEdit = (img: ImageType) => {
-    setEditMode(true);
-    setSelectedId(img.id);
-    setNewUrl(img.img_url);
+  const handleDelete = async (id: number) => {
+    setLoading(true);
+    try {
+      await fetch(`/api/carousels?id=${id}`, { method: "DELETE" });
+      fetchData();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleActive = async (item: Carousel) => {
+    setLoading(true);
+    try {
+      await fetch("/api/carousels", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: item.id,
+          is_active: item.is_active ? 0 : 1,
+        }),
+      });
+
+      fetchData();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openModal = (item?: Carousel) => {
+    if (item) {
+      setEditItem(item);
+      setForm({ title: item.title, slug: item.slug });
+    } else {
+      setEditItem(null);
+      setForm({ title: "", slug: "" });
+    }
     setShowModal(true);
   };
 
-  const resetModal = () => {
+  const closeModal = () => {
     setShowModal(false);
-    setNewUrl("");
-    setEditMode(false);
-    setSelectedId(null);
+    setEditItem(null);
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <div className="max-w-2xl mx-auto">
-
-        
-        <div className="flex justify-between items-center mb-6">
-          
-          <h1 className="text-2xl font-bold">Admin Panel</h1>
-
-          <div className="flex gap-2">
-            {isOrderChanged && (
-              <button
-                onClick={saveOrder}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg"
-              >
-                Save Order
-              </button>
-            )}
-
-            <button
-              onClick={() => setShowModal(true)}
-              className="bg-black text-white px-4 py-2 rounded-lg"
-            >
-              + Add
-            </button>
-          </div>
-        </div>
-
-        
-        <DragDropContext onDragEnd={handleDragEnd}>
-          <Droppable droppableId="images">
-            {(provided) => (
-              <div ref={provided.innerRef} {...provided.droppableProps}>
-                {images.map((img, index) => (
-                  <Draggable
-                    key={img.id}
-                    draggableId={String(img.id)}
-                    index={index}
-                  >
-                    {(provided) => (
-                      <div
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
-                        className="bg-white rounded-xl shadow p-3 mb-4 flex gap-3 items-center"
-                      >
-                       
-                        <div
-                          {...provided.dragHandleProps}
-                          className="cursor-grab text-gray-400"
-                        >
-                          ☰
-                        </div>
-
-                        <img
-                          src={img.img_url}
-                          className="w-32 h-20 object-cover rounded"
-                        />
-                        <span>
-                            {img.id}-
-                            {img.sort_order},
-                            
-                        </span>
-
-                        <div className="ml-auto flex gap-2">
-                          <button
-                            onClick={() => openEdit(img)}
-                            className="text-blue-600 text-sm"
-                          >
-                            Edit
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </Draggable>
-                ))}
-                {provided.placeholder}
-              </div>
-            )}
-          </Droppable>
-        </DragDropContext>
+    <div className="p-6 max-w-5xl mx-auto w-full h-screen bg-white text-gray-800">
+      <div className="flex justify-between mb-6">
+        <h1 className="text-2xl font-bold">Carousels</h1>
+        <button
+          disabled={loading}
+          onClick={() => openModal()}
+          className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded-xl disabled:opacity-95"
+        >
+          {loading ? "Please wait..." : "+ Add Carousel"}
+        </button>
       </div>
+
+      <table className="w-full bg-white rounded-xl overflow-hidden shadow">
+        <thead className="bg-gray-100 text-left">
+          <tr>
+            <th className="p-3">Title</th>
+            <th className="p-3">Slug</th>
+            <th className="p-3">Active</th>
+            <th className="p-3">Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {data.map((item) => (
+            <tr key={item.id} className="border-t">
+              <td className="p-3">{item.title}</td>
+              <td className="p-3 text-gray-500">{item.slug}</td>
+
+              <td className="p-3">
+                <input
+                  type="checkbox"
+                  checked={!!item.is_active}
+                  onChange={() => toggleActive(item)}
+                  className="w-4 h-4"
+                />
+              </td>
+
+              <td className="p-3 flex gap-2">
+                <button
+                  onClick={() => router.push(`/admin/${item.slug}/images`)}
+                  className="text-sm bg-green-500 text-white px-4 py-1.5 rounded-xl"
+                >
+                  Images
+                </button>
+
+                <button
+                  onClick={() => openModal(item)}
+                  className="text-sm bg-blue-500 text-white px-4 py-1.5 rounded-xl"
+                >
+                  Edit
+                </button>
+
+                <button
+                  onClick={() => handleDelete(item.id)}
+                  className="text-sm bg-red-500 text-white px-4 py-1.5 rounded-xl"
+                >
+                  Delete
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex justify-center items-center">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
           <div className="bg-white p-6 rounded-xl w-[320px]">
             <h2 className="mb-4 font-semibold">
-              {editMode ? "Edit Image" : "Add Image"}
+              {editItem ? "Edit Carousel" : "Add Carousel"}
             </h2>
 
             <input
-              value={newUrl}
-              onChange={(e) => setNewUrl(e.target.value)}
-              placeholder="Image URL"
+              placeholder="Title"
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              className="w-full border px-3 py-2 mb-3 rounded"
+            />
+
+            <input
+              placeholder="Slug"
+              value={form.slug}
+              onChange={(e) => setForm({ ...form, slug: e.target.value })}
               className="w-full border px-3 py-2 mb-4 rounded"
             />
 
             <div className="flex justify-end gap-2">
-              <button onClick={resetModal}>Cancel</button>
+              <button onClick={closeModal}>Cancel</button>
               <button
                 onClick={handleSubmit}
-                className="bg-black text-white px-3 py-2 rounded"
+                disabled={loading}
+                className="bg-black text-white px-3 py-2 rounded disabled:opacity-50"
               >
-                Submit
+                {loading ? "Saving..." : "Save"}
               </button>
             </div>
           </div>

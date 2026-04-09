@@ -19,8 +19,72 @@
   }
 }
 
+/* Base styles */
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* 🔥 Component Styling */
+@layer components {
+
+  /* Buttons */
+  .btn {
+    @apply px-4 py-2 rounded-lg font-medium transition duration-200;
+  }
+
+  .btn-primary {
+    @apply bg-black text-white hover:opacity-80 disabled:opacity-50;
+  }
+
+  .btn-secondary {
+    @apply bg-gray-200 text-black hover:bg-gray-300 disabled:opacity-50;
+  }
+
+  .btn-danger {
+    @apply bg-red-600 text-white hover:bg-red-700 disabled:opacity-50;
+  }
+
+  /* Inputs */
+  .input {
+    @apply w-full border border-gray-300 rounded-lg px-3 py-2 
+           focus:outline-none focus:ring-2 focus:ring-black 
+           transition duration-200;
+  }
+
+  /* Card */
+  .card {
+    @apply bg-white dark:bg-gray-900 shadow rounded-xl p-4;
+  }
+
+  /* Table */
+  .table {
+    @apply w-full rounded-xl overflow-hidden shadow;
+  }
+
+  .table th {
+    @apply text-left p-3 bg-gray-100 dark:bg-gray-800;
+  }
+
+  .table td {
+    @apply p-3 border-t;
+  }
+
+  /* Toggle switch (nice UI) */
+  .toggle {
+    @apply w-10 h-5 flex items-center bg-gray-300 rounded-full p-1 cursor-pointer transition;
+  }
+
+  .toggle-active {
+    @apply bg-green-500;
+  }
+
+  .toggle-dot {
+    @apply bg-white w-4 h-4 rounded-full shadow transform transition;
+  }
+
+  .toggle-dot-active {
+    @apply translate-x-5;
+  }
 }

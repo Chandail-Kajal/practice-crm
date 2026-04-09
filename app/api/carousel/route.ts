@@ -1,56 +1,83 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
 import { conn } from "../../../lib/db";
 
-
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const [rows] = await conn.query(
-      "SELECT * FROM images ORDER BY sort_order ASC, id DESC"
-    );
+    const { searchParams } = new URL(req.url);
+
+    const slug = searchParams.get("slug");
+    const active = searchParams.get("active");
+
+    let query = "SELECT * FROM carousel";
+    const values: any[] = [];
+    const conditions: string[] = [];
+
+    if (active === "true") {
+      conditions.push("is_active = 1");
+    }
+
+    if (slug) {
+      conditions.push("slug = ?");
+      values.push(slug);
+    }
+
+    if (conditions.length > 0) {
+      query += " WHERE " + conditions.join(" AND ");
+    }
+
+    const [rows] = await conn.query(query, values);
 
     return NextResponse.json({
       success: true,
       data: rows,
     });
   } catch (error) {
- return NextResponse.json(
-      { success: false, error: "Failed to fetch data" },
+    return NextResponse.json(
+      { success: false, error: "Failed to fetch carousels" },
       { status: 500 }
     );
   }
 }
 
-
 export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const { img_url, index } = body;
+  const { title, slug } = await req.json();
 
-    if (!img_url) {
-      return NextResponse.json(
-        { success: false, error: "img_url is required" },
-        { status: 400 }
-      );
-    }
+  const [result]: any = await conn.execute(
+    "INSERT INTO carousel (title, slug) VALUES (?, ?)",
+    [title, slug]
+  );
 
-    const query = `
-      INSERT INTO images (img_url, sort_order)
-      VALUES (?, ?)
-    `;
+  return NextResponse.json({ success: true, id: result.insertId });
+}
 
-    const [result] = await conn.execute(query, [
-      img_url,
-      index ?? 0,
-    ]);
+export async function PUT(req: NextRequest) {
+  const { id, title, slug } = await req.json();
 
-    return NextResponse.json({
-      success: true,
-      insertedId: result,
-    });
-  } catch (error) {
-    return NextResponse.json(
-      { success: false, error: "Failed to insert data" },
-      { status: 500 }
-    );
-  }
+  await conn.execute(
+    "UPDATE carousel SET title = ?, slug = ? WHERE id = ?",
+    [title, slug, id]
+  );
+
+  return NextResponse.json({ success: true });
+}
+
+export async function PATCH(req: NextRequest) {
+  const { id, is_active } = await req.json();
+
+  await conn.execute(
+    "UPDATE carousel SET is_active = ? WHERE id = ?",
+    [is_active, id]
+  );
+
+  return NextResponse.json({ success: true });
+}
+
+export async function DELETE(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get("id");
+
+  await conn.execute("DELETE FROM carousel WHERE id = ?", [id]);
+
+  return NextResponse.json({ success: true });
 }
